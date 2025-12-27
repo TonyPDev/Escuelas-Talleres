@@ -111,37 +111,51 @@ edited_df = st.data_editor(
 # --- BOTÓN DE GUARDADO ---
 if st.button("💾 Guardar Cambios en la Nube"):
     try:
-        # 1. Unificar datos (si hubo filtro o no)
+        # 1. Unificar datos
         if filtro:
-            # Actualizamos las filas existentes en el original
             df.update(edited_df)
-            # Si agregaste filas nuevas mientras filtrabas, hay que concatenarlas
-            # (Esta lógica básica asume edición, para agregar usa la vista completa)
             final_df_to_upload = df
         else:
             final_df_to_upload = edited_df
-            
-        # 2. LIMPIEZA CRÍTICA (Esto soluciona el fallo silencioso)
-        # Convertimos valores vacíos/None a cadenas vacías
+        
+        # --- NUEVO: AUTO-GENERADOR DE ID (No.) ---
+        # Esto soluciona que se borren filas si no pones el número
+        # Convertimos la columna 'No' a números para poder sumar
+        # (Los vacíos se vuelven 0 temporalmente para calcular el máximo)
+        numeros_existentes = pd.to_numeric(final_df_to_upload['No'], errors='coerce').fillna(0)
+        siguiente_id = int(numeros_existentes.max()) + 1
+        
+        # Recorremos el DataFrame y si vemos un 'No' vacío, le ponemos el número
+        # Necesitamos reiniciar el índice para iterar correctamente
+        final_df_to_upload = final_df_to_upload.reset_index(drop=True)
+        
+        for index, row in final_df_to_upload.iterrows():
+            val_no = str(row['No'])
+            # Si está vacío, es None, o es "nan", le asignamos ID
+            if val_no == "" or val_no == "None" or val_no == "nan" or pd.isna(row['No']):
+                final_df_to_upload.at[index, 'No'] = siguiente_id
+                siguiente_id += 1
+        # ----------------------------------------
+
+        # 2. Limpieza de valores vacíos (evita errores en API)
         final_df_to_upload = final_df_to_upload.fillna("")
         
-        # 3. Formatear fecha para que Google Sheets no la rompa
-        # Usamos try/except por si alguna fecha está vacía
+        # 3. Formatear fecha
         try:
             final_df_to_upload['Fecha'] = pd.to_datetime(final_df_to_upload['Fecha'], dayfirst=True).dt.strftime('%d/%m/%Y')
         except:
-            pass # Si falla (ej. fecha vacía), lo deja como texto
+            pass 
 
-        # 4. GUARDAR
+        # 4. Guardar en Hoja 1
         conn.update(worksheet="Hoja 1", data=final_df_to_upload)
         
-        # 5. Limpiar caché para que al recargar se vean los cambios
+        # 5. Limpiar caché y recargar
         st.cache_data.clear()
-        
-        st.success("¡Datos actualizados correctamente!")
+        st.success("¡Guardado! El sistema asignó números automáticamente a los registros nuevos.")
         
     except Exception as e:
         st.error(f"Error al guardar: {e}")
+        
 # --- SECCIÓN DE ESTADÍSTICAS ---
 st.divider()
 with st.expander("📊 Ver Estadísticas"):
