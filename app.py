@@ -99,13 +99,19 @@ column_config = {
 # --- EDITOR DE DATOS ---
 st.info("💡 Haz doble clic en una celda para editarla.")
 
+if not df_visible.empty:
+    df_visible = df_visible.reset_index(drop=True)
+
 edited_df = st.data_editor(
     df_visible,
     column_config=column_config,
     num_rows="dynamic" if es_admin else "fixed",
     use_container_width=True,
-    hide_index=True,
-    key="data_editor"
+    
+    # ESTA ES LA CLAVE: Oculta la columna "0, 1" que te da el error
+    hide_index=True, 
+    
+    key="data_editor_v2" # Cambié la key para forzar que se refresque el componente
 )
 
 # --- BOTÓN DE GUARDADO ---
@@ -155,7 +161,7 @@ if st.button("💾 Guardar Cambios en la Nube"):
         
     except Exception as e:
         st.error(f"Error al guardar: {e}")
-        
+
 # --- SECCIÓN DE ESTADÍSTICAS ---
 st.divider()
 with st.expander("📊 Ver Estadísticas"):
