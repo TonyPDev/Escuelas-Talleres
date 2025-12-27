@@ -80,8 +80,16 @@ es_admin = (st.session_state.user_role == "admin")
 column_config = {
     "No": st.column_config.TextColumn("No.", disabled=True), # Nadie edita el ID manualmente
     "CCT": st.column_config.TextColumn("CCT", disabled=not es_admin),
-    "Nivel": st.column_config.SelectColumn("Nivel", options=["Preescolar", "Primaria", "Secundaria"], disabled=not es_admin),
-    "Turno": st.column_config.SelectColumn("Turno", options=["Matutino", "Vespertino", "Mixto"], disabled=not es_admin),
+    "Nivel": st.column_config.SelectColumn(
+        "Nivel", 
+        options=["PREESCOLAR", "PRIMARIA", "SECUNDARIA", "MEDIA SUPERIOR", "LICENCIATURA"], 
+        disabled=not es_admin
+    ),
+    "Turno": st.column_config.SelectColumn(
+        "Turno", 
+        options=["MATUTINO", "VESPERTINO", "MIXTO"], 
+        disabled=not es_admin
+    ),
     "Plantel": st.column_config.TextColumn("Plantel", disabled=not es_admin),
     "Direccion": st.column_config.TextColumn("Dirección", disabled=not es_admin),
     
