@@ -111,19 +111,37 @@ edited_df = st.data_editor(
 # --- BOTÓN DE GUARDADO ---
 if st.button("💾 Guardar Cambios en la Nube"):
     try:
+        # 1. Unificar datos (si hubo filtro o no)
         if filtro:
+            # Actualizamos las filas existentes en el original
             df.update(edited_df)
+            # Si agregaste filas nuevas mientras filtrabas, hay que concatenarlas
+            # (Esta lógica básica asume edición, para agregar usa la vista completa)
             final_df_to_upload = df
         else:
             final_df_to_upload = edited_df
             
-        final_df_to_upload['Fecha'] = final_df_to_upload['Fecha'].dt.strftime('%Y-%m-%d')
+        # 2. LIMPIEZA CRÍTICA (Esto soluciona el fallo silencioso)
+        # Convertimos valores vacíos/None a cadenas vacías
+        final_df_to_upload = final_df_to_upload.fillna("")
         
+        # 3. Formatear fecha para que Google Sheets no la rompa
+        # Usamos try/except por si alguna fecha está vacía
+        try:
+            final_df_to_upload['Fecha'] = pd.to_datetime(final_df_to_upload['Fecha'], dayfirst=True).dt.strftime('%d/%m/%Y')
+        except:
+            pass # Si falla (ej. fecha vacía), lo deja como texto
+
+        # 4. GUARDAR
         conn.update(worksheet="Hoja 1", data=final_df_to_upload)
-        st.success("¡Datos actualizados correctamente en Google Drive!")
+        
+        # 5. Limpiar caché para que al recargar se vean los cambios
+        st.cache_data.clear()
+        
+        st.success("¡Datos actualizados correctamente!")
+        
     except Exception as e:
         st.error(f"Error al guardar: {e}")
-
 # --- SECCIÓN DE ESTADÍSTICAS ---
 st.divider()
 with st.expander("📊 Ver Estadísticas"):
