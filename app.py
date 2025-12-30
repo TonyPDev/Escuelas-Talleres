@@ -51,11 +51,9 @@ try:
     data = conn.read(worksheet="Hoja 1", usecols=list(range(9)), ttl=5)
     df = pd.DataFrame(data)
     
-    # 🔴 CORRECCIÓN 1: Convertir la columna Taller a Texto forzoso
-    # Esto evita el error de "Float incompatible with Text" en celdas vacías
+    # Limpieza de datos
     df['Taller'] = df['Taller'].fillna("").astype(str)
-    
-    # Manejo de Fechas
+    # Convertimos fecha, si falla pone NaT (Not a Time)
     df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce', dayfirst=True)
 
 except Exception as e:
@@ -78,7 +76,6 @@ else:
 es_admin = (st.session_state.user_role == "admin")
 
 column_config = {
-    # El campo No. no es requerido para que no bloquee la creación de filas
     "No": st.column_config.TextColumn("No.", disabled=True, required=False),
     "CCT": st.column_config.TextColumn("CCT", disabled=not es_admin),
     "Nivel": st.column_config.SelectboxColumn(
@@ -88,7 +85,8 @@ column_config = {
     ),
     "Turno": st.column_config.SelectboxColumn(
         "Turno", 
-        options=["MATUTINO", "VESPERTINO", "MIXTO"], 
+        # 🔴 CORRECCIÓN: Cambiado MIXTO por DISCONTINUO
+        options=["MATUTINO", "VESPERTINO", "DISCONTINUO"], 
         disabled=not es_admin
     ),
     "Plantel": st.column_config.TextColumn("Plantel", disabled=not es_admin),
@@ -108,12 +106,9 @@ edited_df = st.data_editor(
     df_visible,
     column_config=column_config,
     num_rows="dynamic" if es_admin else "fixed",
-    
-    # 🔴 CORRECCIÓN 2: Actualizado para evitar el aviso amarillo de deprecación
-    width="stretch", # Antes era use_container_width=True
-    
+    width="stretch", 
     hide_index=True, 
-    key="data_editor_v3" 
+    key="data_editor_v4" 
 )
 
 # --- BOTÓN DE GUARDADO ---
@@ -128,7 +123,7 @@ if st.button("💾 Guardar Cambios en la Nube"):
         
         # --- AUTO-GENERADOR DE ID ---
         numeros_existentes = pd.to_numeric(final_df_to_upload['No'], errors='coerce').fillna(0)
-        # Si está vacío, empezamos en 1, si no, max + 1
+        
         if numeros_existentes.empty:
              siguiente_id = 1
         else:
@@ -154,7 +149,6 @@ if st.button("💾 Guardar Cambios en la Nube"):
         # 4. Guardar
         conn.update(worksheet="Hoja 1", data=final_df_to_upload)
         
-        # 5. Limpiar caché
         st.cache_data.clear()
         
         st.success("¡Guardado! Actualizando tabla...")
@@ -173,8 +167,13 @@ with st.expander("📊 Ver Estadísticas"):
         d_inicio = st.date_input("Desde", date(2024, 1, 1))
         d_fin = st.date_input("Hasta", date.today())
         
-        mask_fecha = (df['Fecha'].dt.date >= d_inicio) & (df['Fecha'].dt.date <= d_fin)
-        df_stats = df[mask_fecha]
+        # 🔴 CORRECCIÓN DE ERROR TYPE ERROR:
+        # Primero eliminamos filas que no tengan fecha válida (NaT) antes de comparar
+        df_con_fecha = df.dropna(subset=['Fecha']).copy()
+        
+        # Ahora sí comparamos solo las que tienen fecha real
+        mask_fecha = (df_con_fecha['Fecha'].dt.date >= d_inicio) & (df_con_fecha['Fecha'].dt.date <= d_fin)
+        df_stats = df_con_fecha[mask_fecha]
         
         st.metric("Total Talleres", len(df_stats))
         st.metric("Total Sesiones", df_stats['Sesiones'].sum())
