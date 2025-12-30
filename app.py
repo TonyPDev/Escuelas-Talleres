@@ -80,7 +80,7 @@ column_config = {
     "CCT": st.column_config.TextColumn("CCT", disabled=not es_admin),
     "Nivel": st.column_config.SelectboxColumn(
         "Nivel", 
-        options=["PREESCOLAR", "PRIMARIA", "SECUNDARIA", "MEDIA SUPERIOR", "LICENCIATURA", "BACHILLERATO"], 
+        options=["PREESCOLAR", "PRIMARIA", "SECUNDARIA", "MEDIA SUPERIOR", "LICENCIATURA", "BACHILLERATO", "CAM", "FORMACIÓN PARA EL TRABAJO"], 
         disabled=not es_admin
     ),
     "Turno": st.column_config.SelectboxColumn(
