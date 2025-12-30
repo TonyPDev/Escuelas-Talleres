@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime, date
-import time # 🔴 NUEVO: Importamos time para hacer una pausa antes de recargar
+import time
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestión de Talleres", layout="wide")
@@ -50,7 +50,14 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 try:
     data = conn.read(worksheet="Hoja 1", usecols=list(range(9)), ttl=5)
     df = pd.DataFrame(data)
+    
+    # 🔴 CORRECCIÓN 1: Convertir la columna Taller a Texto forzoso
+    # Esto evita el error de "Float incompatible with Text" en celdas vacías
+    df['Taller'] = df['Taller'].fillna("").astype(str)
+    
+    # Manejo de Fechas
     df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce', dayfirst=True)
+
 except Exception as e:
     st.error(f"Error conectando a Google Sheets: {e}")
     st.stop()
@@ -71,11 +78,12 @@ else:
 es_admin = (st.session_state.user_role == "admin")
 
 column_config = {
-    "No": st.column_config.TextColumn("No.", disabled=True),
+    # El campo No. no es requerido para que no bloquee la creación de filas
+    "No": st.column_config.TextColumn("No.", disabled=True, required=False),
     "CCT": st.column_config.TextColumn("CCT", disabled=not es_admin),
     "Nivel": st.column_config.SelectboxColumn(
         "Nivel", 
-        options=["PREESCOLAR", "PRIMARIA", "SECUNDARIA", "MEDIA SUPERIOR", "LICENCIATURA"], 
+        options=["PREESCOLAR", "PRIMARIA", "SECUNDARIA", "MEDIA SUPERIOR", "LICENCIATURA", "BACHILLERATO"], 
         disabled=not es_admin
     ),
     "Turno": st.column_config.SelectboxColumn(
@@ -100,9 +108,12 @@ edited_df = st.data_editor(
     df_visible,
     column_config=column_config,
     num_rows="dynamic" if es_admin else "fixed",
-    use_container_width=True,
+    
+    # 🔴 CORRECCIÓN 2: Actualizado para evitar el aviso amarillo de deprecación
+    width="stretch", # Antes era use_container_width=True
+    
     hide_index=True, 
-    key="data_editor_v2" 
+    key="data_editor_v3" 
 )
 
 # --- BOTÓN DE GUARDADO ---
@@ -117,7 +128,11 @@ if st.button("💾 Guardar Cambios en la Nube"):
         
         # --- AUTO-GENERADOR DE ID ---
         numeros_existentes = pd.to_numeric(final_df_to_upload['No'], errors='coerce').fillna(0)
-        siguiente_id = int(numeros_existentes.max()) + 1
+        # Si está vacío, empezamos en 1, si no, max + 1
+        if numeros_existentes.empty:
+             siguiente_id = 1
+        else:
+             siguiente_id = int(numeros_existentes.max()) + 1
         
         final_df_to_upload = final_df_to_upload.reset_index(drop=True)
         
@@ -143,8 +158,6 @@ if st.button("💾 Guardar Cambios en la Nube"):
         st.cache_data.clear()
         
         st.success("¡Guardado! Actualizando tabla...")
-        
-        # 🔴 NUEVO: Esperamos 2 segundos para que veas el mensaje y recargamos
         time.sleep(2)
         st.rerun()
         
